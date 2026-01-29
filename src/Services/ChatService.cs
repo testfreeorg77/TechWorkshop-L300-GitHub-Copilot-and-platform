@@ -11,20 +11,36 @@ namespace ZavaStorefront.Services
         private readonly string _deploymentName;
         private readonly ILogger<ChatService> _logger;
         private readonly List<ChatMessage> _conversationHistory;
+        private readonly ContentSafetyService _contentSafetyService;
 
-        public ChatService(IConfiguration configuration, ILogger<ChatService> logger)
+        public ChatService(IConfiguration configuration, ILogger<ChatService> logger, ContentSafetyService contentSafetyService)
         {
             _endpoint = configuration["AZURE_OPENAI_ENDPOINT"] 
                 ?? throw new InvalidOperationException("AZURE_OPENAI_ENDPOINT not configured");
             _deploymentName = "gpt-4o"; // As configured in main.bicep
             _logger = logger;
             _conversationHistory = new List<ChatMessage>();
+            _contentSafetyService = contentSafetyService;
         }
 
         public async Task<ChatResponse> SendMessageAsync(string userMessage)
         {
             try
             {
+                // Check content safety first
+                var safetyResult = await _contentSafetyService.EvaluateTextAsync(userMessage);
+                
+                if (!safetyResult.IsSafe)
+                {
+                    _logger.LogWarning("Message blocked by content safety: {Reason}", safetyResult.BlockedReason);
+                    return new ChatResponse
+                    {
+                        Response = $"⚠️ Your message was blocked by our content safety system: {safetyResult.BlockedReason}. Please rephrase your question.",
+                        Success = false,
+                        Error = safetyResult.BlockedReason
+                    };
+                }
+
                 // Add user message to history
                 _conversationHistory.Add(new ChatMessage
                 {
