@@ -1,0 +1,161 @@
+@{
+    ViewData["Title"] = "Chat";
+}
+
+<div class="container mt-4">
+    <div class="row">
+        <div class="col-md-8 mx-auto">
+            <h1 class="mb-4">Zava Assistant</h1>
+            
+            <div class="card">
+                <div class="card-header bg-primary text-white">
+                    <h5 class="mb-0">
+                        <i class="bi bi-chat-dots"></i> Chat with us
+                    </h5>
+                </div>
+                <div class="card-body">
+                    <div id="chatHistory" class="mb-3" style="height: 400px; overflow-y: auto; border: 1px solid #dee2e6; border-radius: 0.25rem; padding: 1rem;">
+                        <div class="text-muted text-center">
+                            <i class="bi bi-chat-square-text" style="font-size: 3rem;"></i>
+                            <p class="mt-2">Start a conversation! Ask me about our products and pricing.</p>
+                        </div>
+                    </div>
+
+                    <div class="input-group">
+                        <input type="text" id="userMessage" class="form-control" placeholder="Type your message here..." aria-label="User message">
+                        <button class="btn btn-primary" type="button" id="sendButton">
+                            <i class="bi bi-send"></i> Send
+                        </button>
+                        <button class="btn btn-outline-secondary" type="button" id="clearButton">
+                            <i class="bi bi-trash"></i> Clear
+                        </button>
+                    </div>
+
+                    <div id="loadingIndicator" class="text-center mt-3" style="display: none;">
+                        <div class="spinner-border text-primary" role="status">
+                            <span class="visually-hidden">Loading...</span>
+                        </div>
+                        <p class="text-muted mt-2">Thinking...</p>
+                    </div>
+                </div>
+            </div>
+
+            <div class="alert alert-info mt-3">
+                <i class="bi bi-info-circle"></i>
+                <strong>Tip:</strong> Ask me about product features, pricing, or availability!
+            </div>
+        </div>
+    </div>
+</div>
+
+@section Scripts {
+    <script>
+        const chatHistory = document.getElementById('chatHistory');
+        const userMessage = document.getElementById('userMessage');
+        const sendButton = document.getElementById('sendButton');
+        const clearButton = document.getElementById('clearButton');
+        const loadingIndicator = document.getElementById('loadingIndicator');
+
+        function addMessage(role, content) {
+            const messageDiv = document.createElement('div');
+            messageDiv.className = `mb-3 ${role === 'user' ? 'text-end' : ''}`;
+            
+            const badge = role === 'user' ? 
+                '<span class="badge bg-primary me-2">You</span>' : 
+                '<span class="badge bg-secondary me-2">Assistant</span>';
+            
+            const alignment = role === 'user' ? 'ms-auto' : '';
+            
+            messageDiv.innerHTML = `
+                <div class="d-inline-block ${alignment}" style="max-width: 75%;">
+                    ${badge}
+                    <div class="card ${role === 'user' ? 'bg-primary text-white' : 'bg-light'}">
+                        <div class="card-body py-2 px-3">
+                            ${content}
+                        </div>
+                    </div>
+                </div>
+            `;
+            
+            // Remove welcome message if it exists
+            const welcomeMessage = chatHistory.querySelector('.text-muted.text-center');
+            if (welcomeMessage) {
+                welcomeMessage.remove();
+            }
+            
+            chatHistory.appendChild(messageDiv);
+            chatHistory.scrollTop = chatHistory.scrollHeight;
+        }
+
+        async function sendMessage() {
+            const message = userMessage.value.trim();
+            if (!message) return;
+
+            // Add user message to UI
+            addMessage('user', message);
+            userMessage.value = '';
+            userMessage.disabled = true;
+            sendButton.disabled = true;
+            loadingIndicator.style.display = 'block';
+
+            try {
+                const response = await fetch('/Chat/SendMessage', {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                    },
+                    body: JSON.stringify({ message: message })
+                });
+
+                const data = await response.json();
+
+                if (data.success) {
+                    addMessage('assistant', data.response);
+                } else {
+                    addMessage('assistant', `<span class="text-danger">Error: ${data.error || 'Failed to get response'}</span>`);
+                }
+            } catch (error) {
+                addMessage('assistant', `<span class="text-danger">Error: Failed to send message. Please try again.</span>`);
+                console.error('Error:', error);
+            } finally {
+                userMessage.disabled = false;
+                sendButton.disabled = false;
+                loadingIndicator.style.display = 'none';
+                userMessage.focus();
+            }
+        }
+
+        async function clearHistory() {
+            if (!confirm('Are you sure you want to clear the chat history?')) {
+                return;
+            }
+
+            try {
+                await fetch('/Chat/ClearHistory', {
+                    method: 'POST'
+                });
+
+                chatHistory.innerHTML = `
+                    <div class="text-muted text-center">
+                        <i class="bi bi-chat-square-text" style="font-size: 3rem;"></i>
+                        <p class="mt-2">Start a conversation! Ask me about our products and pricing.</p>
+                    </div>
+                `;
+            } catch (error) {
+                console.error('Error clearing history:', error);
+            }
+        }
+
+        sendButton.addEventListener('click', sendMessage);
+        clearButton.addEventListener('click', clearHistory);
+        
+        userMessage.addEventListener('keypress', (e) => {
+            if (e.key === 'Enter') {
+                sendMessage();
+            }
+        });
+
+        // Focus on input field when page loads
+        userMessage.focus();
+    </script>
+}
