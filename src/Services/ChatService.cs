@@ -1,5 +1,6 @@
 using Azure;
 using Azure.AI.OpenAI;
+using Azure.Identity;
 using ZavaStorefront.Models;
 
 namespace ZavaStorefront.Services
@@ -31,7 +32,9 @@ namespace ZavaStorefront.Services
                     Content = userMessage
                 });
 
-                var client = new OpenAIClient(new Uri(_endpoint), new AzureKeyCredential("dummy-key-for-managed-identity"));
+                // Use DefaultAzureCredential for authentication
+                // This works with Managed Identity in Azure and local dev credentials
+                var client = new OpenAIClient(new Uri(_endpoint), new DefaultAzureCredential());
                 
                 var chatCompletionsOptions = new ChatCompletionsOptions()
                 {
