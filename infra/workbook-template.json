@@ -1,0 +1,282 @@
+{
+  "version": "Notebook/1.0",
+  "items": [
+    {
+      "type": 1,
+      "content": {
+        "json": "## Azure OpenAI & Content Safety Observability Dashboard\n\nThis workbook provides insights into Azure OpenAI and Content Safety usage, performance, and safety metrics."
+      },
+      "name": "text - header"
+    },
+    {
+      "type": 9,
+      "content": {
+        "version": "KqlParameterItem/1.0",
+        "parameters": [
+          {
+            "id": "b859a84e-0000-0000-0000-000000000001",
+            "version": "KqlParameterItem/1.0",
+            "name": "TimeRange",
+            "type": 4,
+            "isRequired": true,
+            "value": {
+              "durationMs": 3600000
+            },
+            "typeSettings": {
+              "selectableValues": [
+                {
+                  "durationMs": 300000
+                },
+                {
+                  "durationMs": 900000
+                },
+                {
+                  "durationMs": 1800000
+                },
+                {
+                  "durationMs": 3600000
+                },
+                {
+                  "durationMs": 14400000
+                },
+                {
+                  "durationMs": 43200000
+                },
+                {
+                  "durationMs": 86400000
+                },
+                {
+                  "durationMs": 172800000
+                },
+                {
+                  "durationMs": 259200000
+                },
+                {
+                  "durationMs": 604800000
+                }
+              ],
+              "allowCustom": true
+            },
+            "timeContext": {
+              "durationMs": 86400000
+            },
+            "label": "Time Range"
+          }
+        ],
+        "style": "pills",
+        "queryType": 0,
+        "resourceType": "microsoft.operationalinsights/workspaces"
+      },
+      "name": "parameters - time"
+    },
+    {
+      "type": 1,
+      "content": {
+        "json": "### Azure OpenAI Request Volume"
+      },
+      "name": "text - openai volume header"
+    },
+    {
+      "type": 3,
+      "content": {
+        "version": "KqlItem/1.0",
+        "query": "AzureDiagnostics\n| where ResourceProvider == \"MICROSOFT.COGNITIVESERVICES\"\n| where Category == \"RequestResponse\"\n| where OperationName == \"ChatCompletions_Create\" or OperationName contains \"Completions\"\n| summarize RequestCount = count() by bin(TimeGenerated, 5m)\n| order by TimeGenerated asc\n| render timechart",
+        "size": 0,
+        "title": "OpenAI Requests Over Time (5-minute bins)",
+        "timeContextFromParameter": "TimeRange",
+        "queryType": 0,
+        "resourceType": "microsoft.operationalinsights/workspaces",
+        "visualization": "timechart"
+      },
+      "name": "query - openai volume"
+    },
+    {
+      "type": 1,
+      "content": {
+        "json": "### Azure OpenAI Latency Metrics"
+      },
+      "name": "text - latency header"
+    },
+    {
+      "type": 3,
+      "content": {
+        "version": "KqlItem/1.0",
+        "query": "AzureDiagnostics\n| where ResourceProvider == \"MICROSOFT.COGNITIVESERVICES\"\n| where Category == \"RequestResponse\"\n| where OperationName == \"ChatCompletions_Create\" or OperationName contains \"Completions\"\n| where isnotempty(DurationMs)\n| summarize \n    p50 = percentile(DurationMs, 50),\n    p95 = percentile(DurationMs, 95),\n    p99 = percentile(DurationMs, 99),\n    avg = avg(DurationMs)\n    by bin(TimeGenerated, 5m)\n| order by TimeGenerated asc\n| render timechart",
+        "size": 0,
+        "title": "OpenAI Response Latency Percentiles (ms)",
+        "timeContextFromParameter": "TimeRange",
+        "queryType": 0,
+        "resourceType": "microsoft.operationalinsights/workspaces",
+        "visualization": "timechart"
+      },
+      "name": "query - latency percentiles"
+    },
+    {
+      "type": 1,
+      "content": {
+        "json": "### Operation Breakdown"
+      },
+      "name": "text - operations header"
+    },
+    {
+      "type": 3,
+      "content": {
+        "version": "KqlItem/1.0",
+        "query": "AzureDiagnostics\n| where ResourceProvider == \"MICROSOFT.COGNITIVESERVICES\"\n| where Category == \"RequestResponse\"\n| summarize RequestCount = count(), AvgDuration = avg(DurationMs) by OperationName, ResultSignature\n| order by RequestCount desc",
+        "size": 0,
+        "title": "Operations by Type and Result",
+        "timeContextFromParameter": "TimeRange",
+        "queryType": 0,
+        "resourceType": "microsoft.operationalinsights/workspaces",
+        "visualization": "table",
+        "gridSettings": {
+          "formatters": [
+            {
+              "columnMatch": "RequestCount",
+              "formatter": 4,
+              "formatOptions": {
+                "palette": "blue"
+              }
+            },
+            {
+              "columnMatch": "AvgDuration",
+              "formatter": 0,
+              "formatOptions": {
+                "customColumnWidthSetting": "20ch"
+              },
+              "numberFormat": {
+                "unit": 23,
+                "options": {
+                  "style": "decimal",
+                  "maximumFractionDigits": 2
+                }
+              }
+            }
+          ]
+        }
+      },
+      "name": "query - operations"
+    },
+    {
+      "type": 1,
+      "content": {
+        "json": "### Content Safety Metrics"
+      },
+      "name": "text - safety header"
+    },
+    {
+      "type": 3,
+      "content": {
+        "version": "KqlItem/1.0",
+        "query": "AppTraces\n| where Message contains \"ContentSafety\"\n| extend IsBlocked = Message contains \"BLOCKED\"\n| summarize \n    TotalChecks = count(),\n    BlockedCount = countif(IsBlocked),\n    PassedCount = countif(not(IsBlocked))\n    by bin(TimeGenerated, 5m)\n| extend BlockRate = round(100.0 * BlockedCount / TotalChecks, 2)\n| order by TimeGenerated asc\n| render timechart",
+        "size": 0,
+        "title": "Content Safety Evaluations Over Time",
+        "timeContextFromParameter": "TimeRange",
+        "queryType": 0,
+        "resourceType": "microsoft.operationalinsights/workspaces",
+        "visualization": "timechart"
+      },
+      "name": "query - safety checks"
+    },
+    {
+      "type": 3,
+      "content": {
+        "version": "KqlItem/1.0",
+        "query": "AppTraces\n| where Message contains \"ContentSafety\" and Message contains \"BLOCKED\"\n| extend Category = extract(\"Category=([^,]+)\", 1, Message)\n| extend Severity = extract(\"Severity=(\\\\d+)\", 1, Message)\n| summarize BlockCount = count() by Category, Severity\n| order by BlockCount desc",
+        "size": 0,
+        "title": "Content Safety Blocks by Category",
+        "timeContextFromParameter": "TimeRange",
+        "queryType": 0,
+        "resourceType": "microsoft.operationalinsights/workspaces",
+        "visualization": "piechart"
+      },
+      "name": "query - safety categories"
+    },
+    {
+      "type": 1,
+      "content": {
+        "json": "### Token Usage & Cost Estimation"
+      },
+      "name": "text - tokens header"
+    },
+    {
+      "type": 3,
+      "content": {
+        "version": "KqlItem/1.0",
+        "query": "AzureDiagnostics\n| where ResourceProvider == \"MICROSOFT.COGNITIVESERVICES\"\n| where Category == \"RequestResponse\"\n| where OperationName == \"ChatCompletions_Create\"\n| extend properties = parse_json(properties_s)\n| extend promptTokens = toint(properties.prompt_tokens)\n| extend completionTokens = toint(properties.completion_tokens)\n| extend totalTokens = toint(properties.total_tokens)\n| where isnotempty(totalTokens)\n| summarize \n    TotalPromptTokens = sum(promptTokens),\n    TotalCompletionTokens = sum(completionTokens),\n    TotalTokens = sum(totalTokens),\n    RequestCount = count()\n    by bin(TimeGenerated, 1h)\n| order by TimeGenerated asc\n| render timechart",
+        "size": 0,
+        "title": "Token Usage Over Time",
+        "timeContextFromParameter": "TimeRange",
+        "queryType": 0,
+        "resourceType": "microsoft.operationalinsights/workspaces",
+        "visualization": "timechart"
+      },
+      "name": "query - tokens"
+    },
+    {
+      "type": 1,
+      "content": {
+        "json": "### Error Analysis"
+      },
+      "name": "text - errors header"
+    },
+    {
+      "type": 3,
+      "content": {
+        "version": "KqlItem/1.0",
+        "query": "AzureDiagnostics\n| where ResourceProvider == \"MICROSOFT.COGNITIVESERVICES\"\n| where Category == \"RequestResponse\"\n| where ResultSignature != \"200\" and ResultSignature != \"201\"\n| summarize ErrorCount = count() by ResultSignature, OperationName, bin(TimeGenerated, 5m)\n| order by TimeGenerated desc",
+        "size": 0,
+        "title": "Errors Over Time",
+        "timeContextFromParameter": "TimeRange",
+        "queryType": 0,
+        "resourceType": "microsoft.operationalinsights/workspaces",
+        "visualization": "barchart"
+      },
+      "name": "query - errors"
+    },
+    {
+      "type": 1,
+      "content": {
+        "json": "### Summary Statistics"
+      },
+      "name": "text - summary header"
+    },
+    {
+      "type": 3,
+      "content": {
+        "version": "KqlItem/1.0",
+        "query": "let openai = AzureDiagnostics\n| where ResourceProvider == \"MICROSOFT.COGNITIVESERVICES\"\n| where Category == \"RequestResponse\"\n| where OperationName contains \"Completions\"\n| summarize \n    OpenAI_Requests = count(),\n    OpenAI_AvgLatency = round(avg(DurationMs), 2),\n    OpenAI_Errors = countif(ResultSignature != \"200\" and ResultSignature != \"201\");\nlet safety = AppTraces\n| where Message contains \"ContentSafety\"\n| summarize \n    Safety_Checks = count(),\n    Safety_Blocks = countif(Message contains \"BLOCKED\");\nopenai\n| extend dummy = 1\n| join kind=inner (safety | extend dummy = 1) on dummy\n| project OpenAI_Requests, OpenAI_AvgLatency, OpenAI_Errors, Safety_Checks, Safety_Blocks\n| extend Safety_BlockRate = round(100.0 * Safety_Blocks / Safety_Checks, 2)\n| extend OpenAI_ErrorRate = round(100.0 * OpenAI_Errors / OpenAI_Requests, 2)",
+        "size": 3,
+        "title": "Summary Metrics",
+        "timeContextFromParameter": "TimeRange",
+        "queryType": 0,
+        "resourceType": "microsoft.operationalinsights/workspaces",
+        "visualization": "tiles",
+        "tileSettings": {
+          "showBorder": false,
+          "titleContent": {
+            "columnMatch": "Column",
+            "formatter": 1
+          },
+          "leftContent": {
+            "columnMatch": "Value",
+            "formatter": 12,
+            "formatOptions": {
+              "palette": "auto"
+            },
+            "numberFormat": {
+              "unit": 17,
+              "options": {
+                "maximumSignificantDigits": 3,
+                "maximumFractionDigits": 2
+              }
+            }
+          }
+        }
+      },
+      "name": "query - summary"
+    }
+  ],
+  "fallbackResourceIds": [],
+  "fromTemplateId": "sentinel-UserWorkbook"
+}

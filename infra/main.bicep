@@ -148,6 +148,20 @@ module contentSafetyRole 'core/security/role.bicep' = {
   }
 }
 
+// Deploy Observability Workbook
+module workbook './workbook.bicep' = {
+  name: 'observability-workbook'
+  scope: rg
+  params: {
+    workbookName: 'AI Governance Observability Dashboard'
+    location: location
+    logAnalyticsWorkspaceId: monitoring.outputs.logAnalyticsWorkspaceId
+    openAiAccountName: openAi.outputs.name
+    contentSafetyAccountName: contentSafety.outputs.name
+    tags: tags
+  }
+}
+
 output AZURE_CONTAINER_REGISTRY_ENDPOINT string = registry.outputs.loginServer
 output AZURE_CONTAINER_REGISTRY_NAME string = registry.outputs.name
 output AZURE_WEB_APP_ENDPOINT string = 'https://${web.outputs.defaultHostName}'
