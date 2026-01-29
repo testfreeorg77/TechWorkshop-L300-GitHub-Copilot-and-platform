@@ -37,7 +37,7 @@ namespace ZavaStorefront.Services
                 foreach (var category in response.Value.CategoriesAnalysis)
                 {
                     var categoryName = category.Category.ToString();
-                    var severity = category.Severity;
+                    var severity = category.Severity ?? 0;
                     
                     result.CategoryScores[categoryName] = severity;
 

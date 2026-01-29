@@ -2,6 +2,7 @@ using Azure;
 using Azure.AI.OpenAI;
 using Azure.Identity;
 using ZavaStorefront.Models;
+using OpenAI.Chat;
 
 namespace ZavaStorefront.Services
 {
@@ -10,7 +11,7 @@ namespace ZavaStorefront.Services
         private readonly string _endpoint;
         private readonly string _deploymentName;
         private readonly ILogger<ChatService> _logger;
-        private readonly List<ChatMessage> _conversationHistory;
+        private readonly List<ZavaStorefront.Models.ChatMessage> _conversationHistory;
         private readonly ContentSafetyService _contentSafetyService;
 
         public ChatService(IConfiguration configuration, ILogger<ChatService> logger, ContentSafetyService contentSafetyService)
@@ -19,7 +20,7 @@ namespace ZavaStorefront.Services
                 ?? throw new InvalidOperationException("AZURE_OPENAI_ENDPOINT not configured");
             _deploymentName = "gpt-4o"; // As configured in main.bicep
             _logger = logger;
-            _conversationHistory = new List<ChatMessage>();
+            _conversationHistory = new List<ZavaStorefront.Models.ChatMessage>();
             _contentSafetyService = contentSafetyService;
         }
 
@@ -42,7 +43,7 @@ namespace ZavaStorefront.Services
                 }
 
                 // Add user message to history
-                _conversationHistory.Add(new ChatMessage
+                _conversationHistory.Add(new ZavaStorefront.Models.ChatMessage
                 {
                     Role = "user",
                     Content = userMessage
@@ -50,15 +51,12 @@ namespace ZavaStorefront.Services
 
                 // Use DefaultAzureCredential for authentication
                 // This works with Managed Identity in Azure and local dev credentials
-                var client = new OpenAIClient(new Uri(_endpoint), new DefaultAzureCredential());
+                var client = new AzureOpenAIClient(new Uri(_endpoint), new DefaultAzureCredential());
+                var chatClient = client.GetChatClient(_deploymentName);
                 
-                var chatCompletionsOptions = new ChatCompletionsOptions()
+                var messages = new List<OpenAI.Chat.ChatMessage>
                 {
-                    DeploymentName = _deploymentName,
-                    Messages =
-                    {
-                        new ChatRequestSystemMessage("You are a helpful assistant for Zava Storefront. Help customers with product information and pricing questions. Be friendly and concise."),
-                    }
+                    new SystemChatMessage("You are a helpful assistant for Zava Storefront. Help customers with product information and pricing questions. Be friendly and concise.")
                 };
 
                 // Add conversation history
@@ -66,27 +64,40 @@ namespace ZavaStorefront.Services
                 {
                     if (msg.Role == "user")
                     {
-                        chatCompletionsOptions.Messages.Add(new ChatRequestUserMessage(msg.Content));
+                        messages.Add(new UserChatMessage(msg.Content));
                     }
                     else if (msg.Role == "assistant")
                     {
-                        chatCompletionsOptions.Messages.Add(new ChatRequestAssistantMessage(msg.Content));
+                        messages.Add(new AssistantChatMessage(msg.Content));
                     }
                 }
 
-                Response<ChatCompletions> response = await client.GetChatCompletionsAsync(chatCompletionsOptions);
-                ChatResponseMessage responseMessage = response.Value.Choices[0].Message;
+                ChatCompletion completion = await chatClient.CompleteChatAsync(messages);
+
+                // Check if we have valid content
+                if (completion.Content == null || completion.Content.Count == 0 || string.IsNullOrEmpty(completion.Content[0].Text))
+                {
+                    _logger.LogWarning("Received empty response from chat service");
+                    return new ChatResponse
+                    {
+                        Response = string.Empty,
+                        Success = false,
+                        Error = "Received empty response from chat service"
+                    };
+                }
+
+                var responseContent = completion.Content[0].Text;
 
                 // Add assistant response to history
-                _conversationHistory.Add(new ChatMessage
+                _conversationHistory.Add(new ZavaStorefront.Models.ChatMessage
                 {
                     Role = "assistant",
-                    Content = responseMessage.Content
+                    Content = responseContent
                 });
 
                 return new ChatResponse
                 {
-                    Response = responseMessage.Content,
+                    Response = responseContent,
                     Success = true
                 };
             }
@@ -102,7 +113,7 @@ namespace ZavaStorefront.Services
             }
         }
 
-        public List<ChatMessage> GetConversationHistory()
+        public List<ZavaStorefront.Models.ChatMessage> GetConversationHistory()
         {
             return _conversationHistory.ToList();
         }
