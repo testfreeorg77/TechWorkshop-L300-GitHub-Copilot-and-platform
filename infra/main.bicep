@@ -87,6 +87,7 @@ module openAi './core/ai/foundry.bicep' = {
     location: location
     tags: tags
     name: !empty(openAiServiceName) ? openAiServiceName : '${abbrs.openAi}${resourceToken}'
+    logAnalyticsWorkspaceId: monitoring.outputs.logAnalyticsWorkspaceId
     deployments: [
       {
         name: 'gpt-4o'
