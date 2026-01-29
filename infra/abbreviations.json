@@ -1,0 +1,13 @@
+{
+  "containerRegistry": "cr",
+  "logAnalyticsWorkspace": "log",
+  "applicationInsights": "appi",
+  "appServicePlan": "asp",
+  "appService": "app",
+  "resourcesResourceGroups": "rg",
+  "keyVault": "kv",
+  "storageAccount": "st",
+  "openAi": "oai",
+  "aiHub": "aihub",
+  "aiProject": "aiproj"
+}

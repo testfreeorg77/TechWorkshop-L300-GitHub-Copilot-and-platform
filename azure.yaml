@@ -1,0 +1,8 @@
+name: ZavaStorefront
+metadata:
+  template: azd-init@1.0.0
+services:
+  web:
+    project: src
+    language: dotnet
+    host: appservice
