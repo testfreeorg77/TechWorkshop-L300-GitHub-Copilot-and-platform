@@ -74,16 +74,30 @@ namespace ZavaStorefront.Services
 
                 ChatCompletion completion = await chatClient.CompleteChatAsync(messages);
 
+                // Check if we have valid content
+                if (completion.Content == null || completion.Content.Count == 0 || string.IsNullOrEmpty(completion.Content[0].Text))
+                {
+                    _logger.LogWarning("Received empty response from chat service");
+                    return new ChatResponse
+                    {
+                        Response = string.Empty,
+                        Success = false,
+                        Error = "Received empty response from chat service"
+                    };
+                }
+
+                var responseContent = completion.Content[0].Text;
+
                 // Add assistant response to history
                 _conversationHistory.Add(new ZavaStorefront.Models.ChatMessage
                 {
                     Role = "assistant",
-                    Content = completion.Content[0].Text
+                    Content = responseContent
                 });
 
                 return new ChatResponse
                 {
-                    Response = completion.Content[0].Text,
+                    Response = responseContent,
                     Success = true
                 };
             }
