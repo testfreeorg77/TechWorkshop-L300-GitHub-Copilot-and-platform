@@ -1,60 +1,34 @@
 # GitHub Actions Deployment Setup
 
-This repository contains a GitHub Actions workflow that automatically builds and deploys your .NET application as a container to Azure App Service.
+This repository contains a GitHub Actions workflow that automatically builds and deploys your .NET application as a container to Azure App Service using **Federated Identity (OIDC)** for secure authentication.
 
 ## Prerequisites
 
-Before the workflow can run successfully, you need to configure the following GitHub secrets and variables:
-
-### Required GitHub Secrets
-
-1. **AZURE_CREDENTIALS** - Azure service principal credentials for authentication
-
-   To create this secret:
-
-   ```bash
-   # Create a service principal with contributor access to your resource group
-   az ad sp create-for-rbac --name "github-actions-sp" \
-     --role contributor \
-     --scopes /subscriptions/{subscription-id}/resourceGroups/{resource-group-name} \
-     --json-auth
-   ```
-
-   Copy the entire JSON output and paste it as the value for the `AZURE_CREDENTIALS` secret.
+The workflow uses **OpenID Connect (OIDC)** for authentication with Azure, which is more secure than using secrets.
 
 ### Required GitHub Variables
 
-1. **AZURE_CONTAINER_REGISTRY_NAME** - The name of your Azure Container Registry (without .azurecr.io)
-2. **AZURE_APP_SERVICE_NAME** - The name of your Azure App Service
-3. **AZURE_RESOURCE_GROUP** - The name of your Azure Resource Group
+All variables have been configured in **Settings → Secrets and variables → Actions → Variables**:
 
-### How to Configure Secrets and Variables
+### Required GitHub Variables
 
-1. Go to your GitHub repository
-2. Click on **Settings** → **Secrets and variables** → **Actions**
-3. Add the secret under the **Secrets** tab:
-   - Click **New repository secret**
-   - Name: `AZURE_CREDENTIALS`
-   - Value: Paste the JSON output from the service principal creation command
-4. Add the variables under the **Variables** tab:
-   - Click **New repository variable** for each variable:
-     - `AZURE_CONTAINER_REGISTRY_NAME`
-     - `AZURE_APP_SERVICE_NAME`
-     - `AZURE_RESOURCE_GROUP`
+All variables have been configured in **Settings → Secrets and variables → Actions → Variables**:
 
-### Service Principal Permissions
+1. **AZURE_CLIENT_ID** - The Application (client) ID of the Azure AD app
+2. **AZURE_TENANT_ID** - The Azure AD tenant ID
+3. **AZURE_SUBSCRIPTION_ID** - Your Azure subscription ID
+4. **AZURE_CONTAINER_REGISTRY_NAME** - The name of your Azure Container Registry (without .azurecr.io)
+5. **AZURE_APP_SERVICE_NAME** - The name of your Azure App Service
+6. **AZURE_RESOURCE_GROUP** - The name of your Azure Resource Group
 
-The service principal needs the following permissions:
-- **Contributor** role on the resource group (for App Service deployment)
-- **AcrPush** role on the Azure Container Registry (for pushing container images)
+## ✅ Configuration Status
 
-To assign the ACR role:
-```bash
-az role assignment create \
-  --assignee {service-principal-client-id} \
-  --role AcrPush \
-  --scope /subscriptions/{subscription-id}/resourceGroups/{resource-group-name}/providers/Microsoft.ContainerRegistry/registries/{acr-name}
-```
+All required variables and federated credentials have been configured:
+- ✅ Azure AD Application created
+- ✅ Service Principal created with Contributor role
+- ✅ ACR Push permissions assigned
+- ✅ Federated credentials configured for GitHub Actions
+- ✅ GitHub variables configured
 
 ## Workflow Behavior
 
