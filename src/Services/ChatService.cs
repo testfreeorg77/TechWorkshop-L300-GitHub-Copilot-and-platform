@@ -1,0 +1,96 @@
+using Azure;
+using Azure.AI.OpenAI;
+using ZavaStorefront.Models;
+
+namespace ZavaStorefront.Services
+{
+    public class ChatService
+    {
+        private readonly string _endpoint;
+        private readonly string _deploymentName;
+        private readonly ILogger<ChatService> _logger;
+        private readonly List<ChatMessage> _conversationHistory;
+
+        public ChatService(IConfiguration configuration, ILogger<ChatService> logger)
+        {
+            _endpoint = configuration["AZURE_OPENAI_ENDPOINT"] 
+                ?? throw new InvalidOperationException("AZURE_OPENAI_ENDPOINT not configured");
+            _deploymentName = "gpt-4o"; // As configured in main.bicep
+            _logger = logger;
+            _conversationHistory = new List<ChatMessage>();
+        }
+
+        public async Task<ChatResponse> SendMessageAsync(string userMessage)
+        {
+            try
+            {
+                // Add user message to history
+                _conversationHistory.Add(new ChatMessage
+                {
+                    Role = "user",
+                    Content = userMessage
+                });
+
+                var client = new OpenAIClient(new Uri(_endpoint), new AzureKeyCredential("dummy-key-for-managed-identity"));
+                
+                var chatCompletionsOptions = new ChatCompletionsOptions()
+                {
+                    DeploymentName = _deploymentName,
+                    Messages =
+                    {
+                        new ChatRequestSystemMessage("You are a helpful assistant for Zava Storefront. Help customers with product information and pricing questions. Be friendly and concise."),
+                    }
+                };
+
+                // Add conversation history
+                foreach (var msg in _conversationHistory)
+                {
+                    if (msg.Role == "user")
+                    {
+                        chatCompletionsOptions.Messages.Add(new ChatRequestUserMessage(msg.Content));
+                    }
+                    else if (msg.Role == "assistant")
+                    {
+                        chatCompletionsOptions.Messages.Add(new ChatRequestAssistantMessage(msg.Content));
+                    }
+                }
+
+                Response<ChatCompletions> response = await client.GetChatCompletionsAsync(chatCompletionsOptions);
+                ChatResponseMessage responseMessage = response.Value.Choices[0].Message;
+
+                // Add assistant response to history
+                _conversationHistory.Add(new ChatMessage
+                {
+                    Role = "assistant",
+                    Content = responseMessage.Content
+                });
+
+                return new ChatResponse
+                {
+                    Response = responseMessage.Content,
+                    Success = true
+                };
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError(ex, "Error sending message to chat service");
+                return new ChatResponse
+                {
+                    Response = string.Empty,
+                    Success = false,
+                    Error = $"Failed to get response: {ex.Message}"
+                };
+            }
+        }
+
+        public List<ChatMessage> GetConversationHistory()
+        {
+            return _conversationHistory.ToList();
+        }
+
+        public void ClearHistory()
+        {
+            _conversationHistory.Clear();
+        }
+    }
+}
